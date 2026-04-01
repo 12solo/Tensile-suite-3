@@ -31,12 +31,12 @@ AXIS_STYLE = dict(
 
 # --- 2. Helper Functions ---
 def clean_filename(filename):
-    """Removes file extensions for clean legend display."""
+    """Removes file extensions for clean display in tables and legends."""
     return os.path.splitext(filename)[0]
 
 # --- 3. Header ---
 st.title("🔬 Solomon Tensile Suite 2.1")
-st.markdown("**Journal Ready: Clean Legends, Zero-Intercept & Integrated Framework**")
+st.markdown("**Journal Ready: Clean Labels, Zero-Intercept & Integrated Framework**")
 
 # --- 4. Sidebar ---
 with st.sidebar:
@@ -58,7 +58,7 @@ with st.sidebar:
     st.header("📂 Data Input")
     with st.form("upload_form", clear_on_submit=True):
         batch_id = st.text_input("Batch ID", "Sample A")
-        files = st.file_uploader("Upload Files", type=['csv', 'xlsx', 'txt'], accept_multiple_files=True)
+        files = st.file_uploader("Upload Replicates", type=['csv', 'xlsx', 'txt'], accept_multiple_files=True)
         submit = st.form_submit_button("Process Batch")
 
     if st.button("Reset Entire Study", type="primary"):
@@ -118,10 +118,11 @@ if submit and files:
             peak_idx = df_std['Stress_MPa'].idxmax()
             df_std = df_std.iloc[:peak_idx + 1].copy()
             
-            # Clean name for storage key
+            # Remove extension from filename for clean tracking
             display_name = clean_filename(f.name)
             batch_results.append({
-                "Sample": batch_id, "File": display_name,
+                "Sample": batch_id, 
+                "File": display_name,
                 "UTS [MPa]": df_std['Stress_MPa'].max(), 
                 "Elongation [%]": df_std['Strain_pct'].max(),
                 "Modulus [MPa]": slope * 100 if 'slope' in locals() else 0
@@ -153,13 +154,14 @@ if not df_m.empty:
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with tabs[2]:
-        st.subheader("Batch Replicate Overlay (Journal Style)")
-        sel_batch = st.selectbox("Select Batch:", sorted(df_m['Sample'].unique()))
+        st.subheader("Batch Replicate Overlay (Clean Names)")
+        sel_batch = st.selectbox("Select Batch to Inspect:", sorted(df_m['Sample'].unique()))
         batch_files = df_m[df_m['Sample'] == sel_batch]['File'].tolist()
         fig_batch = go.Figure()
         for f in batch_files:
             if f in curves:
                 c_df = curves[f]
+                # Replicates plotted starting from 0,0
                 fig_batch.add_trace(go.Scatter(x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
                                                mode='lines', line=dict(width=line_w), name=f"<i>{f}</i>"))
         fig_batch.update_layout(
@@ -175,11 +177,12 @@ if not df_m.empty:
         st.plotly_chart(fig_batch, use_container_width=True)
 
     with tabs[3]:
-        st.subheader("Representative Comparison (Clean Legends)")
+        st.subheader("Representative Comparison")
         fig_rep = go.Figure()
         unique_samples = sorted(df_m['Sample'].unique())
         for s_name in unique_samples:
             sub = df_m[df_m['Sample'] == s_name]
+            # Use mean UTS to find the representative replicate
             rep_f = sub.iloc[(sub['UTS [MPa]'] - sub['UTS [MPa]'].mean()).abs().argsort()[:1]]['File'].values[0]
             if rep_f in curves:
                 c_df = curves[rep_f]
@@ -201,6 +204,7 @@ if not df_m.empty:
     with tabs[4]:
         st.subheader("Export Results")
         st.download_button("📥 Download Stats (CSV)", df_m.to_csv(index=False).encode('utf-8'), "tensile_summary.csv")
+        # Build XY Data
         rep_xy = []
         for s_name in unique_samples:
             sub = df_m[df_m['Sample'] == s_name]
@@ -209,6 +213,6 @@ if not df_m.empty:
             temp.columns = [f"{s_name}_Strain", f"{s_name}_Stress"]
             rep_xy.append(temp)
         if rep_xy:
-            st.download_button("📥 Download XY Data", pd.concat(rep_xy, axis=1).to_csv(index=False).encode('utf-8'), "rep_curves.csv")
+            st.download_button("📥 Download XY Data", pd.concat(rep_xy, axis=1).to_csv(index=False).encode('utf-8'), "representative_curves.csv")
 else:
-    st.info("👋 Process data in the sidebar to view analysis.")
+    st.info("👋 Upload data in the sidebar and click 'Process Batch' to begin.")
