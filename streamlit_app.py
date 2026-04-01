@@ -36,7 +36,7 @@ def clean_filename(filename):
 
 # --- 3. Header ---
 st.title("🔬 Solomon Tensile Suite 2.1")
-st.markdown("**Journal Ready: Clean Labels, Zero-Intercept & Integrated Framework**")
+st.markdown("**Journal Ready: Legend Positioning & Zero-Intercept Framework**")
 
 # --- 4. Sidebar ---
 with st.sidebar:
@@ -52,6 +52,9 @@ with st.sidebar:
 
     st.header("🎨 Plot Customization")
     line_w = st.slider("Curve Thickness", 1.0, 5.0, 2.5)
+    
+    st.subheader("📍 Legend Position")
+    # Legend coordinates: (0,0) is bottom-left, (1,1) is top-right
     leg_x = st.slider("Legend Horizontal (X)", 0.0, 1.0, 0.05)
     leg_y = st.slider("Legend Vertical (Y)", 0.0, 1.0, 0.95)
     
@@ -118,7 +121,7 @@ if submit and files:
             peak_idx = df_std['Stress_MPa'].idxmax()
             df_std = df_std.iloc[:peak_idx + 1].copy()
             
-            # Remove extension from filename for clean tracking
+            # Clean filename for legends/storage
             display_name = clean_filename(f.name)
             batch_results.append({
                 "Sample": batch_id, 
@@ -140,8 +143,17 @@ curves = st.session_state['curve_storage']
 if not df_m.empty:
     tabs = st.tabs(["📊 Dataset", "📉 Trends", "🎨 Batch Replicates", "🏛️ Representative Comparison", "💾 Export"])
 
+    # Shared Legend Config
+    legend_config = dict(
+        x=leg_x, y=leg_y,
+        xanchor='left', yanchor='top',
+        bgcolor="rgba(255, 255, 255, 0.7)", # Semi-opaque to prevent data overlap
+        borderwidth=0,                      # Clean look per request
+        font=dict(family="Times New Roman", size=18, color="black")
+    )
+
     with tabs[0]:
-        st.subheader("Batch Summary Results")
+        st.subheader("Batch Results Summary")
         st.dataframe(df_m, use_container_width=True)
         st.table(df_m.groupby("Sample")[["UTS [MPa]", "Elongation [%]", "Modulus [MPa]"]].agg(['mean', 'std']))
 
@@ -154,24 +166,20 @@ if not df_m.empty:
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with tabs[2]:
-        st.subheader("Batch Replicate Overlay (Clean Names)")
+        st.subheader("Batch Replicate Overlay")
         sel_batch = st.selectbox("Select Batch to Inspect:", sorted(df_m['Sample'].unique()))
         batch_files = df_m[df_m['Sample'] == sel_batch]['File'].tolist()
         fig_batch = go.Figure()
         for f in batch_files:
             if f in curves:
                 c_df = curves[f]
-                # Replicates plotted starting from 0,0
                 fig_batch.add_trace(go.Scatter(x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
                                                mode='lines', line=dict(width=line_w), name=f"<i>{f}</i>"))
         fig_batch.update_layout(
             template="simple_white", height=750, 
             xaxis=dict(title="<b>Strain (%)</b>", range=[0, None], **AXIS_STYLE), 
             yaxis=dict(title="<b>Stress (MPa)</b>", range=[0, None], **AXIS_STYLE),
-            showlegend=True,
-            legend=dict(x=leg_x, y=leg_y, xanchor='left', yanchor='top',
-                        bgcolor="rgba(255, 255, 255, 0.6)", borderwidth=0,                      
-                        font=dict(family="Times New Roman", size=14, color="black")),
+            showlegend=True, legend=legend_config,
             margin=dict(l=80, r=40, t=40, b=80) 
         )
         st.plotly_chart(fig_batch, use_container_width=True)
@@ -182,7 +190,7 @@ if not df_m.empty:
         unique_samples = sorted(df_m['Sample'].unique())
         for s_name in unique_samples:
             sub = df_m[df_m['Sample'] == s_name]
-            # Use mean UTS to find the representative replicate
+            # Select curve closest to the mean UTS
             rep_f = sub.iloc[(sub['UTS [MPa]'] - sub['UTS [MPa]'].mean()).abs().argsort()[:1]]['File'].values[0]
             if rep_f in curves:
                 c_df = curves[rep_f]
@@ -193,16 +201,13 @@ if not df_m.empty:
             template="simple_white", height=800,
             xaxis=dict(title="<b>Engineering Strain (%)</b>", range=[0, None], **AXIS_STYLE),
             yaxis=dict(title="<b>Engineering Stress (MPa)</b>", range=[0, None], **AXIS_STYLE),
-            showlegend=True,
-            legend=dict(x=leg_x, y=leg_y, xanchor='left', yanchor='top',
-                        bgcolor="rgba(255, 255, 255, 0.6)", borderwidth=0,                      
-                        font=dict(family="Times New Roman", size=18, color="black")),
+            showlegend=True, legend=legend_config,
             margin=dict(l=80, r=40, t=40, b=80) 
         )
         st.plotly_chart(fig_rep, use_container_width=True)
 
     with tabs[4]:
-        st.subheader("Export Results")
+        st.subheader("Export Center")
         st.download_button("📥 Download Stats (CSV)", df_m.to_csv(index=False).encode('utf-8'), "tensile_summary.csv")
         # Build XY Data
         rep_xy = []
@@ -215,4 +220,4 @@ if not df_m.empty:
         if rep_xy:
             st.download_button("📥 Download XY Data", pd.concat(rep_xy, axis=1).to_csv(index=False).encode('utf-8'), "representative_curves.csv")
 else:
-    st.info("👋 Upload data in the sidebar and click 'Process Batch' to begin.")
+    st.info("👋 Use the sidebar to upload your replicates and click 'Process Batch'.")
