@@ -27,7 +27,7 @@ AXIS_STYLE = dict(
 
 # --- 2. Header ---
 st.title("🔬 Solomon Tensile Suite 2.1")
-st.markdown("**Complete Scientific Analysis: Replicates, Trends & Batch Stacking**")
+st.markdown("**Scientific Journal Style: Co-Plotted Stress-Strain Analysis**")
 
 # --- 3. Sidebar ---
 with st.sidebar:
@@ -67,7 +67,7 @@ def robust_load(file):
         df = df.apply(pd.to_numeric, errors='coerce').dropna(how='all').reset_index(drop=True)
         
         cols = df.columns.tolist()
-        load_col = next((c for c in cols if any(k in c.lower() for k in ['load', 'carico', 'force', 'sforzo (n)', 'n'])), None)
+        load_col = next((c for c in cols if any(k in c.lower() for k in ['load', 'carico', 'force', 'n'])), None)
         ext_col = next((c for c in cols if any(k in c.lower() for k in ['ext', 'defor', 'strain', 'mm', 'disp'])), None)
         
         if load_col and ext_col:
@@ -123,7 +123,7 @@ df_m = st.session_state['master_tensile_df']
 curves = st.session_state['curve_storage']
 
 if not df_m.empty:
-    tabs = st.tabs(["📊 Dataset", "📉 Trends", "🎨 Batch Stack", "🏛️ Representative Stack", "💾 Export"])
+    tabs = st.tabs(["📊 Dataset", "📉 Trends", "🎨 Batch Replicates", "🏛️ Representative Comparison", "💾 Export"])
 
     with tabs[0]:
         st.subheader("Summary Table")
@@ -140,58 +140,57 @@ if not df_m.empty:
         st.plotly_chart(fig_trend, use_container_width=True)
 
     with tabs[2]:
-        st.subheader("Batch Replicate Inspection")
+        st.subheader("Batch Replicate Overlay")
         sel_batch = st.selectbox("Select Batch to Inspect:", sorted(df_m['Sample'].unique()))
         batch_files = df_m[df_m['Sample'] == sel_batch]['File'].tolist()
-        h_offset = st.slider("Strain Offset (%)", 0, 20, 0, key="batch_offset")
         
         fig_batch = go.Figure()
-        for i, f in enumerate(batch_files):
+        for f in batch_files:
             if f in curves:
                 c_df = curves[f]
-                x_shift = i * h_offset
-                fig_batch.add_trace(go.Scatter(x=c_df['Strain_pct'] + x_shift, y=c_df['Stress_MPa'], mode='lines', name=f"Rep {i+1}", showlegend=False))
-                fig_batch.add_annotation(x=x_shift, y=c_df['Stress_MPa'].max(), text=f"<b>Rep {i+1}</b>", showarrow=False, align="left", xanchor="left", yanchor="bottom", yshift=10, font=dict(family="Times New Roman", size=14))
+                fig_batch.add_trace(go.Scatter(x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
+                                               mode='lines', name=f, line=dict(width=line_w)))
         
-        fig_batch.update_layout(template="simple_white", height=700, xaxis_title="<b>Strain (%)</b>", yaxis_title="<b>Stress (MPa)</b>", xaxis=dict(range=[0, None], **AXIS_STYLE), yaxis=dict(range=[0, None], **AXIS_STYLE))
+        fig_batch.update_layout(template="simple_white", height=700, 
+                                xaxis_title="<b>Strain (%)</b>", yaxis_title="<b>Stress (MPa)</b>", 
+                                xaxis=dict(range=[0, None], **AXIS_STYLE), yaxis=dict(range=[0, None], **AXIS_STYLE),
+                                legend=dict(font=dict(family="Times New Roman", size=14)))
         st.plotly_chart(fig_batch, use_container_width=True)
 
     with tabs[3]:
-        st.subheader("Representative Stress-Strain Stack")
-        h_off_global = st.slider("Global Strain Offset (%)", 0, 50, 0, key="global_offset")
+        st.subheader("Representative Comparison (Journal Style)")
+        st.info("Plotted from a single origin (0,0) for direct comparison of material properties.")
+        
         fig_rep = go.Figure()
         unique_samples = sorted(df_m['Sample'].unique())
+        
         for i, s_name in enumerate(unique_samples):
             sub = df_m[df_m['Sample'] == s_name]
             m_uts = sub['UTS [MPa]'].mean()
+            # Select curve closest to the mean UTS for the batch
             rep_f = sub.iloc[(sub['UTS [MPa]'] - m_uts).abs().argsort()[:1]]['File'].values[0]
             
             if rep_f in curves:
                 c_df = curves[rep_f]
-                x_shift = i * h_off_global
-                fig_rep.add_trace(go.Scatter(x=c_df['Strain_pct'] + x_shift, y=c_df['Stress_MPa'], mode='lines', line=dict(width=line_w), showlegend=False))
+                fig_rep.add_trace(go.Scatter(x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
+                                             mode='lines', line=dict(width=line_w), name=s_name))
                 
-                label = f"<b>{s_name}: UTS = {m_uts:.2f} MPa</b>"
-                fig_rep.add_annotation(x=x_shift, y=c_df['Stress_MPa'].max(), text=label, showarrow=False, align="left", xanchor="left", yanchor="bottom", yshift=15, font=dict(family="Times New Roman", size=16))
+                # Scientific Tagging (Labeling near the peak)
+                fig_rep.add_annotation(x=c_df['Strain_pct'].max(), y=c_df['Stress_MPa'].max(),
+                                       text=f"<b>{s_name}</b>", showarrow=True, arrowhead=1,
+                                       ax=20, ay=-30, font=dict(family="Times New Roman", size=16))
 
-        fig_rep.update_layout(template="simple_white", height=800, xaxis_title="<b>Engineering Strain (%)</b>", yaxis_title="<b>Engineering Stress (MPa)</b>", xaxis=dict(range=[0, None], **AXIS_STYLE), yaxis=dict(range=[0, None], **AXIS_STYLE))
+        fig_rep.update_layout(template="simple_white", height=800, 
+                              xaxis_title="<b>Engineering Strain (%)</b>", 
+                              yaxis_title="<b>Engineering Stress (MPa)</b>", 
+                              xaxis=dict(range=[0, None], **AXIS_STYLE), 
+                              yaxis=dict(range=[0, None], **AXIS_STYLE),
+                              legend=dict(font=dict(family="Times New Roman", size=16)))
         st.plotly_chart(fig_rep, use_container_width=True)
 
     with tabs[4]:
         st.subheader("Export Results")
         csv_sum = df_m.to_csv(index=False).encode('utf-8')
         st.download_button("📥 Download Stats Summary", csv_sum, "tensile_summary.csv", "text/csv")
-        
-        rep_list = []
-        for s_name in unique_samples:
-            sub = df_m[df_m['Sample'] == s_name]
-            rep_f = sub.iloc[(sub['UTS [MPa]'] - sub['UTS [MPa]'].mean()).abs().argsort()[:1]]['File'].values[0]
-            temp = curves[rep_f][['Strain_pct', 'Stress_MPa']].copy()
-            temp.columns = [f"{s_name}_Strain_%", f"{s_name}_Stress_MPa"]
-            rep_list.append(temp)
-        
-        if rep_list:
-            rep_csv = pd.concat(rep_list, axis=1).to_csv(index=False).encode('utf-8')
-            st.download_button("📥 Download Representative XY Data", rep_csv, "rep_curves_xy.csv", "text/csv")
 else:
-    st.info("👋 Upload specimen files in the sidebar to begin batch analysis.")
+    st.info("👋 Upload tensile files in the sidebar to begin batch analysis.")
