@@ -5,6 +5,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import io
 import re
+import os
 
 # --- 1. Page Configuration & Session State ---
 st.set_page_config(page_title="Solomon Tensile Suite 2.1", layout="wide")
@@ -28,11 +29,16 @@ AXIS_STYLE = dict(
     rangemode='tozero'
 )
 
-# --- 2. Header ---
-st.title("🔬 Solomon Tensile Suite 2.1")
-st.markdown("**Unified Batch Analysis: Synchronized Zero-Intercept & Journal Plotting**")
+# --- 2. Helper Functions ---
+def clean_filename(filename):
+    """Removes file extensions for clean legend display."""
+    return os.path.splitext(filename)[0]
 
-# --- 3. Sidebar ---
+# --- 3. Header ---
+st.title("🔬 Solomon Tensile Suite 2.1")
+st.markdown("**Journal Ready: Clean Legends, Zero-Intercept & Integrated Framework**")
+
+# --- 4. Sidebar ---
 with st.sidebar:
     st.header("📏 Specimen Geometry")
     width = st.number_input("Width (mm)", value=4.0)
@@ -60,7 +66,7 @@ with st.sidebar:
         st.session_state['curve_storage'] = {}
         st.rerun()
 
-# --- 4. Processing Engine ---
+# --- 5. Processing Engine ---
 def robust_load(file):
     try:
         if file.name.endswith('.xlsx'):
@@ -97,35 +103,36 @@ if submit and files:
             df_std['Strain_pct'] = (df_std['Ext_mm'] / l0) * 100
             df_std['Stress_MPa'] = df_std['Load_N'] / area
             
-            # 1. Aggressive Toe-Compensation 
+            # Toe-Compensation 
             mask = (df_std['Strain_pct'] >= toe_min) & (df_std['Strain_pct'] <= toe_max)
             if len(df_std[mask]) > 5:
                 slope, intercept = np.polyfit(df_std[mask]['Strain_pct'], df_std[mask]['Stress_MPa'], 1)
                 toe_offset = -intercept / slope
                 df_std['Strain_pct'] = df_std['Strain_pct'] - toe_offset
             
-            # 2. Origin Alignment & Negative Filter
+            # Origin Alignment & Truncation
             df_std = df_std[df_std['Strain_pct'] >= 0].reset_index(drop=True)
             origin = pd.DataFrame({'Load_N':[0.0], 'Ext_mm':[0.0], 'Strain_pct':[0.0], 'Stress_MPa':[0.0]})
             df_std = pd.concat([origin, df_std], ignore_index=True)
             
-            # 3. Truncate at Fracture Point
             peak_idx = df_std['Stress_MPa'].idxmax()
             df_std = df_std.iloc[:peak_idx + 1].copy()
             
+            # Clean name for storage key
+            display_name = clean_filename(f.name)
             batch_results.append({
-                "Sample": batch_id, "File": f.name,
+                "Sample": batch_id, "File": display_name,
                 "UTS [MPa]": df_std['Stress_MPa'].max(), 
                 "Elongation [%]": df_std['Strain_pct'].max(),
                 "Modulus [MPa]": slope * 100 if 'slope' in locals() else 0
             })
-            st.session_state['curve_storage'][f.name] = df_std
+            st.session_state['curve_storage'][display_name] = df_std
             
     if batch_results:
         new_data = pd.DataFrame(batch_results)
         st.session_state['master_tensile_df'] = pd.concat([st.session_state['master_tensile_df'], new_data], ignore_index=True)
 
-# --- 5. Dashboard View ---
+# --- 6. Dashboard View ---
 df_m = st.session_state['master_tensile_df']
 curves = st.session_state['curve_storage']
 
@@ -133,9 +140,8 @@ if not df_m.empty:
     tabs = st.tabs(["📊 Dataset", "📉 Trends", "🎨 Batch Replicates", "🏛️ Representative Comparison", "💾 Export"])
 
     with tabs[0]:
-        st.subheader("Batch Summary Table")
+        st.subheader("Batch Summary Results")
         st.dataframe(df_m, use_container_width=True)
-        st.subheader("Statistical Summary (Mean ± SD)")
         st.table(df_m.groupby("Sample")[["UTS [MPa]", "Elongation [%]", "Modulus [MPa]"]].agg(['mean', 'std']))
 
     with tabs[1]:
@@ -150,33 +156,26 @@ if not df_m.empty:
         st.subheader("Batch Replicate Overlay (Journal Style)")
         sel_batch = st.selectbox("Select Batch:", sorted(df_m['Sample'].unique()))
         batch_files = df_m[df_m['Sample'] == sel_batch]['File'].tolist()
-        
         fig_batch = go.Figure()
         for f in batch_files:
             if f in curves:
                 c_df = curves[f]
-                # Replicates plotted exactly from (0,0) with Maximum Stress truncation
                 fig_batch.add_trace(go.Scatter(x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
                                                mode='lines', line=dict(width=line_w), name=f"<i>{f}</i>"))
-        
         fig_batch.update_layout(
             template="simple_white", height=750, 
             xaxis=dict(title="<b>Strain (%)</b>", range=[0, None], **AXIS_STYLE), 
             yaxis=dict(title="<b>Stress (MPa)</b>", range=[0, None], **AXIS_STYLE),
             showlegend=True,
-            legend=dict(
-                x=leg_x, y=leg_y,
-                xanchor='left', yanchor='top',
-                bgcolor="rgba(255, 255, 255, 0.6)", 
-                borderwidth=0,                      
-                font=dict(family="Times New Roman", size=14, color="black")
-            ),
+            legend=dict(x=leg_x, y=leg_y, xanchor='left', yanchor='top',
+                        bgcolor="rgba(255, 255, 255, 0.6)", borderwidth=0,                      
+                        font=dict(family="Times New Roman", size=14, color="black")),
             margin=dict(l=80, r=40, t=40, b=80) 
         )
         st.plotly_chart(fig_batch, use_container_width=True)
 
     with tabs[3]:
-        st.subheader("Representative Comparison (Journal Style)")
+        st.subheader("Representative Comparison (Clean Legends)")
         fig_rep = go.Figure()
         unique_samples = sorted(df_m['Sample'].unique())
         for s_name in unique_samples:
@@ -192,21 +191,16 @@ if not df_m.empty:
             xaxis=dict(title="<b>Engineering Strain (%)</b>", range=[0, None], **AXIS_STYLE),
             yaxis=dict(title="<b>Engineering Stress (MPa)</b>", range=[0, None], **AXIS_STYLE),
             showlegend=True,
-            legend=dict(
-                x=leg_x, y=leg_y,
-                xanchor='left', yanchor='top',
-                bgcolor="rgba(255, 255, 255, 0.6)", 
-                borderwidth=0,                      
-                font=dict(family="Times New Roman", size=18, color="black")
-            ),
+            legend=dict(x=leg_x, y=leg_y, xanchor='left', yanchor='top',
+                        bgcolor="rgba(255, 255, 255, 0.6)", borderwidth=0,                      
+                        font=dict(family="Times New Roman", size=18, color="black")),
             margin=dict(l=80, r=40, t=40, b=80) 
         )
         st.plotly_chart(fig_rep, use_container_width=True)
 
     with tabs[4]:
-        st.subheader("Export Center")
-        st.download_button("📥 Download Stats (CSV)", df_m.to_csv(index=False).encode('utf-8'), "tensile_results.csv")
-        # XY Data Export
+        st.subheader("Export Results")
+        st.download_button("📥 Download Stats (CSV)", df_m.to_csv(index=False).encode('utf-8'), "tensile_summary.csv")
         rep_xy = []
         for s_name in unique_samples:
             sub = df_m[df_m['Sample'] == s_name]
