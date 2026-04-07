@@ -6,3 +6,6 @@ matplotlib
 Pillow
 openpyxl
 xlsxwriter
+scipy
+scikit-learn
+
