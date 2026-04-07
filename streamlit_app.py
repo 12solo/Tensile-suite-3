@@ -361,6 +361,26 @@ def render_sidebar_brand():
 
 
 # ==========================================
+# EXPORT UTILITY (AUTO-FIT & LOGO)
+# ==========================================
+def export_to_excel_with_logo(df, sheet_title):
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        df.to_excel(writer, index=False, sheet_name=sheet_title)
+        worksheet = writer.sheets[sheet_title]
+        # Auto-fit columns
+        for i, col in enumerate(df.columns):
+            max_len = max(len(str(col)), df[col].astype(str).map(len).max() if len(df) > 0 else 0) + 2
+            worksheet.set_column(i, i, max_len)
+        # Insert Logo if it exists
+        logo_path = "LOGO.png"
+        if os.path.exists(logo_path):
+            col_offset = len(df.columns) + 1
+            worksheet.insert_image(1, col_offset, logo_path, {'x_scale': 0.6, 'y_scale': 0.6})
+    return output.getvalue()
+
+
+# ==========================================
 # PLOTLY THEME (STRICT JOURNAL QUALITY)
 # ==========================================
 PLOT_BG    = "#ffffff"
@@ -607,7 +627,7 @@ if not df_m.empty:
                 color = PALETTE[i % len(PALETTE)]
                 fig_rep.add_trace(go.Scatter(
                     x=c_df['Strain_pct'], y=c_df['Stress_MPa'], 
-                    mode='lines', line=dict(width=line_w, color=color), name=f"{s_name}"
+                    mode='lines', line=dict(width=line_w, color=color), name=f"<b>{s_name}</b>"
                 ))
                 
         fig_rep.update_layout(
@@ -620,12 +640,61 @@ if not df_m.empty:
         st.plotly_chart(fig_rep, use_container_width=True, config=JOURNAL_CONFIG)
 
     with tabs[3]:
-        section_title("Data Export", "💾")
-        csv_data = df_m.to_csv(index=False).encode('utf-8')
-        st.download_button("📥 Download Batch Statistics (CSV)", csv_data, "Tensile_Summary.csv")
+        section_title("Comprehensive Data Export", "💾")
+        st.markdown("<p style='color:#000000;'>Download your aggregated statistics or extract the full wide-format data matrix for external plotting.</p>", unsafe_allow_html=True)
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.markdown("<p style='color:#000000;'>To download the high-resolution journal plots, click the <b>camera icon</b> located in the top-right corner of the charts.</p>", unsafe_allow_html=True)
+        c1, c2 = st.columns(2)
+        
+        with c1:
+            st.markdown("<h4 style='color:#000000;font-family:Arial;'>1. Batch Statistics</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Includes UTS, Elongation, and Modulus for all tests.</p>", unsafe_allow_html=True)
+            
+            # Export Stats to Excel
+            excel_stats = export_to_excel_with_logo(df_m, "Tensile_Summary")
+            st.download_button(
+                "📥 Download Summary (Excel)", 
+                excel_stats, 
+                "Tensile_Summary_Stats.xlsx", 
+                use_container_width=True
+            )
+            
+        with c2:
+            st.markdown("<h4 style='color:#000000;font-family:Arial;'>2. All Raw & Rep Curves</h4>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Wide-format Excel matrix. The representative sample for each batch is explicitly tagged.</p>", unsafe_allow_html=True)
+            
+            # Construct Wide DataFrame for Export
+            export_list = []
+            unique_samples = sorted(df_m['Sample'].unique())
+            
+            for s_name in unique_samples:
+                batch_files = df_m[df_m['Sample'] == s_name]['File'].tolist()
+                sub = df_m[df_m['Sample'] == s_name]
+                rep_f = sub.iloc[(sub['UTS [MPa]'] - sub['UTS [MPa]'].mean()).abs().argsort()[:1]]['File'].values[0]
+
+                for f in batch_files:
+                    if f in curves:
+                        temp = curves[f][['Strain_pct', 'Stress_MPa']].copy().reset_index(drop=True)
+                        rep_tag = " [REP]" if f == rep_f else ""
+                        
+                        temp.columns = [
+                            f"{s_name} | {f}{rep_tag} _ Strain (%)", 
+                            f"{s_name} | {f}{rep_tag} _ Stress (MPa)"
+                        ]
+                        export_list.append(temp)
+            
+            if export_list:
+                wide_df = pd.concat(export_list, axis=1)
+                excel_curves = export_to_excel_with_logo(wide_df, "All_Tensile_Curves")
+                
+                st.download_button(
+                    "📥 Download All Curves (Excel)", 
+                    excel_curves, 
+                    "Tensile_All_Curves_Wide.xlsx", 
+                    use_container_width=True
+                )
+                
+        st.markdown("<hr>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#000000; font-size:0.85rem;'><i>To download the high-resolution journal plots, navigate to the plotting tabs and click the <b>camera icon</b> located in the top-right corner of the charts.</i></p>", unsafe_allow_html=True)
 
 else:
     # --- Empty State UI ---
