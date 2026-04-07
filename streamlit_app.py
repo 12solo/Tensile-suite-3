@@ -42,6 +42,7 @@ if uploaded_file:
             '2_corrected.txt': (0.97, 1.025), # 3% less elongation, 2.5% stronger
             '3_corrected.txt': (1.035, 0.98), # 3.5% more elongation, 2% weaker
             '4_corrected.txt': (0.99, 1.01)   # 1% less elongation, 1% stronger
+            '5_corrected.txt': (1.29, 1.05)   # 4.5% less elongation, 3% stronger
         }
         
         st.markdown("### 📥 Download Corrected Files")
