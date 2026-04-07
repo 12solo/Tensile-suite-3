@@ -638,7 +638,7 @@ if submit and files:
         st.session_state['master_tensile_df'] = pd.concat(
             [st.session_state['master_tensile_df'], new_data], ignore_index=True
         )
-        st.success(f"✓ {len(batch_results)} specimen(s) processed for batch "{batch_id}".")
+        st.success(f"✓ {len(batch_results)} specimen(s) processed for batch '{batch_id}'.")
 
 # ==========================================
 # DASHBOARD
