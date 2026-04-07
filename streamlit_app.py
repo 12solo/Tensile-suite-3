@@ -28,47 +28,37 @@ st.markdown("""
 
 /* ── CSS Variables ────────────────────────────── */
 :root {
-    /* Brand Colors */
     --navy:       #0b1120;
     --navy-mid:   #111827;
     --navy-light: #1a2540;
     --gold:       #c9a84c;
     --gold-light: #e2c97e;
     --gold-dim:   #9c7a32;
-    
-    /* Light Mode Colors */
     --bg-white:   #ffffff;
     --bg-offwhite:#f8fafc;
-    --text-dark:  #000000; /* Pure Dark Black for normal text */
-    --text-muted: #111111; /* Almost black for secondary text */
+    --text-dark:  #000000; 
+    --text-muted: #111111; 
     --border-light:#e2e8f0;
-    
     --accent:     #3a7bd5;
     --red:        #e05252;
     --green:      #3db87a;
-    
     --font-head:  'Playfair Display', Georgia, serif;
     --font-mono:  'IBM Plex Mono', 'Courier New', monospace;
     --font-body:  'IBM Plex Sans', 'Segoe UI', sans-serif;
 }
 
-/* ── Base & Body ──────────────────────────────── */
 html, body, [class*="css"] {
     font-family: var(--font-body);
     color: var(--text-dark);
 }
-.stApp {
-    background: var(--bg-white);
-}
+.stApp { background: var(--bg-white); }
 .stApp::before { display: none; }
 
-/* ── Sidebar (Pure White & User Friendly) ─────── */
+/* ── Sidebar ──────────────────────────────────── */
 [data-testid="stSidebar"] {
     background: #ffffff !important;
     border-right: 1px solid var(--border-light);
 }
-
-/* Fixed material icon bug and force pure black text */
 [data-testid="stSidebar"] .stMarkdown,
 [data-testid="stSidebar"] label,
 [data-testid="stSidebar"] p {
@@ -79,7 +69,6 @@ html, body, [class*="css"] {
 [data-testid="stIconMaterial"] {
     font-family: "Material Symbols Rounded" !important;
 }
-
 [data-testid="stSidebar"] h1,
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3 {
@@ -91,7 +80,6 @@ html, body, [class*="css"] {
 }
 [data-testid="stSidebar"] hr { border-color: var(--border-light); margin: 1rem 0; }
 
-/* Sidebar Inputs */
 [data-testid="stSidebar"] input[type="text"],
 [data-testid="stSidebar"] input[type="number"],
 [data-testid="stSidebar"] textarea,
@@ -104,7 +92,6 @@ html, body, [class*="css"] {
     font-size: 0.82rem !important;
 }
 
-/* File Uploader Dropzone */
 [data-testid="stFileUploadDropzone"] {
     background-color: var(--bg-white) !important;
     border: 2px dashed #cbd5e1 !important;
@@ -126,11 +113,6 @@ html, body, [class*="css"] {
     color: #000000 !important;
     font-family: var(--font-mono) !important;
     font-size: 0.82rem !important;
-}
-.stSelectbox > div > div:hover,
-.stTextInput > div > div > input:focus {
-    border-color: var(--gold) !important;
-    box-shadow: 0 0 0 1px var(--gold-dim) !important;
 }
 
 /* ── Buttons ──────────────────────────────────── */
@@ -157,21 +139,13 @@ html, body, [class*="css"] {
     color: white !important;
 }
 
-/* Download buttons */
 [data-testid="stDownloadButton"] > button {
     background: var(--bg-offwhite) !important;
     color: var(--navy) !important;
     border: 1px solid var(--border-light) !important;
-    border-radius: 3px !important;
-    font-weight: 600 !important;
-}
-[data-testid="stDownloadButton"] > button:hover {
-    background: #ffffff !important;
-    border-color: var(--gold) !important;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05) !important;
 }
 
-/* ── Tabs ─────────────────────────────────────── */
+/* ── Tabs & DataFrames ─────────────────────────── */
 [data-testid="stTabs"] [role="tablist"] {
     background: var(--bg-offwhite);
     border-bottom: 1px solid var(--border-light);
@@ -187,17 +161,11 @@ html, body, [class*="css"] {
     padding: 0.7rem 1.2rem !important;
     border-bottom: 2px solid transparent !important;
 }
-[data-testid="stTabs"] [role="tab"]:hover {
-    color: var(--navy) !important;
-    background: rgba(0,0,0,0.02) !important;
-}
 [data-testid="stTabs"] [role="tab"][aria-selected="true"] {
-    color: #000000 !important;
     border-bottom-color: var(--gold) !important;
     background: var(--bg-white) !important;
 }
 
-/* ── DataFrames ───────────────────────────────── */
 [data-testid="stDataFrame"] {
     border: 1px solid var(--border-light) !important;
     border-radius: 6px !important;
@@ -212,7 +180,6 @@ html, body, [class*="css"] {
     color: #000000 !important;
 }
 
-/* ── Expanders ────────────────────────────────── */
 [data-testid="stExpander"] {
     border: 1px solid var(--border-light) !important;
     border-radius: 4px !important;
@@ -222,9 +189,6 @@ html, body, [class*="css"] {
     color: #000000 !important;
     font-weight: 700 !important;
 }
-
-/* ── Alerts ───────────────────────────────────── */
-[data-testid="stAlert"] { color: #000000 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -369,15 +333,13 @@ def export_to_excel_with_logo(df, sheet_title):
         df.to_excel(writer, index=False, sheet_name=sheet_title)
         worksheet = writer.sheets[sheet_title]
         
-        # Robust Auto-fit columns (Safely handles NaNs and identical column names)
         for i in range(df.shape[1]):
             col_name = str(df.columns[i])
             col_len = len(col_name)
             
             if len(df) > 0:
-                # Grab column by index, fill blanks, convert to text, and find max length
                 data_len = df.iloc[:, i].fillna("").astype(str).str.len().max()
-                if pd.isna(data_len):  # Fallback if column is entirely empty
+                if pd.isna(data_len):  
                     data_len = 0
             else:
                 data_len = 0
@@ -385,7 +347,6 @@ def export_to_excel_with_logo(df, sheet_title):
             max_len = max(col_len, data_len) + 2
             worksheet.set_column(i, i, max_len)
             
-        # Insert Logo if it exists
         logo_path = "LOGO.png"
         if os.path.exists(logo_path):
             col_offset = len(df.columns) + 1
@@ -409,7 +370,7 @@ TENSILE_STYLE = dict(
     showline=True,
     linecolor=BLACK, 
     linewidth=2,
-    showgrid=False,   # Strict NO GRIDLINES
+    showgrid=False,  
     zeroline=False,
     rangemode='tozero',
     title_font=dict(family="Arial", size=18, color=BLACK),
@@ -534,24 +495,59 @@ if submit and files:
                         max_slope = slope
                         best_intercept = intercept
                 
-                # --- TOE COMPENSATION ---
+                # --- TOE COMPENSATION & ALIGNMENT ---
                 toe_offset = -best_intercept / max_slope if max_slope > 0 else 0
                 df_std['Strain_pct'] = df_std['Strain_pct'] - toe_offset
                 
-                # Origin Alignment & Truncation at Peak
                 df_std = df_std[df_std['Strain_pct'] >= 0].reset_index(drop=True)
                 origin = pd.DataFrame({'Load_N':[0.0], 'Ext_mm':[0.0], 'Strain_pct':[0.0], 'Stress_MPa':[0.0]})
                 df_std = pd.concat([origin, df_std], ignore_index=True)
                 
+                # --- SMART BREAK DETECTION ---
                 peak_idx = df_std['Stress_MPa'].idxmax()
-                df_std = df_std.iloc[:peak_idx + 1].copy()
+                uts = df_std['Stress_MPa'][peak_idx]
                 
+                # Truncate at break (drop below 10% of UTS after peak)
+                post_peak = df_std.iloc[peak_idx:]
+                break_candidates = post_peak[post_peak['Stress_MPa'] < (0.1 * uts)]
+                if not break_candidates.empty:
+                    break_idx = break_candidates.index[0]
+                    df_std = df_std.iloc[:break_idx + 1].copy()
+
+                # Calculate 0.2% Offset Yield
+                modulus_mpa = max_slope * 100 # (Slope is MPa/%, so *100 gives MPa/100% = MPa)
+                offset_stress = max_slope * (df_std['Strain_pct'] - 0.2)
+                diff = np.abs(df_std['Stress_MPa'] - offset_stress)
+                
+                valid_mask = df_std['Strain_pct'] >= 0.2
+                if valid_mask.any():
+                    yield_idx = diff[valid_mask].idxmin()
+                    yield_stress = df_std['Stress_MPa'].iloc[yield_idx]
+                    yield_strain = df_std['Strain_pct'].iloc[yield_idx]
+                else:
+                    yield_stress, yield_strain = np.nan, np.nan
+
+                # Integrals: Work Done (Joules) & Toughness (MJ/m^3)
+                work_done = np.trapz(df_std['Load_N'], df_std['Ext_mm'] / 1000)
+                toughness = np.trapz(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
+                
+                # Break values
+                last_idx = len(df_std) - 1
+                stress_break = df_std['Stress_MPa'].iloc[last_idx]
+                elong_break = df_std['Strain_pct'].iloc[last_idx]
+
                 display_name = clean_filename(f.name)
                 batch_results.append({
-                    "Sample": batch_id, "File": display_name,
-                    "UTS [MPa]": df_std['Stress_MPa'].max(), 
-                    "Elongation [%]": df_std['Strain_pct'].max(),
-                    "Modulus [MPa]": max_slope * 100 
+                    "Sample": batch_id, 
+                    "File": display_name,
+                    "Modulus [MPa]": round(modulus_mpa, 2),
+                    "Yield Stress [MPa]": round(yield_stress, 2),
+                    "Yield Strain [%]": round(yield_strain, 2),
+                    "UTS [MPa]": round(uts, 2), 
+                    "Stress at Break [MPa]": round(stress_break, 2),
+                    "Elongation at Break [%]": round(elong_break, 2),
+                    "Work Done [J]": round(work_done, 4),
+                    "Toughness [MJ/m³]": round(toughness, 4)
                 })
                 st.session_state['curve_storage'][display_name] = df_std
                 
@@ -585,11 +581,10 @@ if not df_m.empty:
         "💾 Export Data"
     ])
     
-    # Clean Journal Legend
     legend_config = dict(
         x=leg_x, y=leg_y, xanchor='left', yanchor='top',
         bgcolor="rgba(255, 255, 255, 0.9)", 
-        bordercolor=BLACK, borderwidth=0, # No border around legend text                
+        bordercolor=BLACK, borderwidth=0,             
         font=dict(family="Arial", size=14, color=BLACK)
     )
 
@@ -598,7 +593,8 @@ if not df_m.empty:
         st.dataframe(df_m, use_container_width=True, height=250)
         
         st.markdown("<br><h4 style='color:#000000;font-family:Arial;'>Aggregated Batch Statistics</h4>", unsafe_allow_html=True)
-        agg_df = df_m.groupby("Sample")[["UTS [MPa]", "Elongation [%]", "Modulus [MPa]"]].agg(['mean', 'std'])
+        numeric_cols = [c for c in df_m.columns if c not in ["Sample", "File"]]
+        agg_df = df_m.groupby("Sample")[numeric_cols].agg(['mean', 'std']).round(3)
         st.dataframe(agg_df, use_container_width=True)
 
     with tabs[1]:
@@ -661,9 +657,8 @@ if not df_m.empty:
         
         with c1:
             st.markdown("<h4 style='color:#000000;font-family:Arial;'>1. Batch Statistics</h4>", unsafe_allow_html=True)
-            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Includes UTS, Elongation, and Modulus for all tests.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Includes advanced mechanical properties for all tests.</p>", unsafe_allow_html=True)
             
-            # Export Stats to Excel
             excel_stats = export_to_excel_with_logo(df_m, "Tensile_Summary")
             st.download_button(
                 "📥 Download Summary (Excel)", 
@@ -676,7 +671,6 @@ if not df_m.empty:
             st.markdown("<h4 style='color:#000000;font-family:Arial;'>2. All Raw & Rep Curves</h4>", unsafe_allow_html=True)
             st.markdown("<p style='color:#64748b;font-size:0.85rem;'>Wide-format Excel matrix. The representative sample for each batch is explicitly tagged.</p>", unsafe_allow_html=True)
             
-            # Construct Wide DataFrame for Export
             export_list = []
             unique_samples = sorted(df_m['Sample'].unique())
             
@@ -729,8 +723,8 @@ else:
             max-width:480px;margin:0 auto;line-height:1.7;
         ">
             Upload your raw Tensile data files via the <b style="color:#c9a84c;">Data Input</b> panel
-            in the sidebar. The framework will automatically detect Modulus, compensate for machine toe, 
-            align origins, and generate publication-ready representative overlays.
+            in the sidebar. The framework will automatically detect Modulus, Yield Stress, Break characteristics, 
+            Toughness, and Work Done.
         </div>
     </div>
     """, unsafe_allow_html=True)
