@@ -46,19 +46,17 @@ st.markdown("""
     --shadow-md:   0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
 }
 
-/* ── HYPER-AGGRESSIVE CLEAN UI (Hides Native Streamlit Elements) ── */
+/* ── SURGICAL CLEAN UI (Hides Popups but Keeps Sidebar Toggle) ── */
 #MainMenu { visibility: hidden !important; display: none !important; }
-header { visibility: hidden !important; display: none !important; height: 0px !important; }
-footer { visibility: hidden !important; display: none !important; height: 0px !important; }
 .stDeployButton { display: none !important; }
+footer { visibility: hidden !important; display: none !important; }
+header { background: transparent !important; } /* Keeps the header alive for the sidebar button, but makes it invisible */
 
 /* 1. Destroy "Press Enter to apply" on Number Inputs */
-div[data-testid="InputInstructions"] { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0px !important; margin: 0 !important; padding: 0 !important; }
-div[data-testid="InputInstructions"] * { display: none !important; }
+div[data-testid="InputInstructions"] { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0px !important; }
 
 /* 2. Destroy "Limit 200MB per file" and Uploader subtext */
 [data-testid="stFileUploadDropzone"] small { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0px !important; }
-[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p { font-size: 0.9rem !important; }
 
 /* 3. Destroy all Hover Tooltips */
 div[data-baseweb="tooltip"] { display: none !important; visibility: hidden !important; opacity: 0 !important; }
@@ -605,11 +603,11 @@ if submit and files:
                                        'Strain_pct': [0.0], 'Stress_MPa': [0.0]})
                 df_std = pd.concat([origin, df_std], ignore_index=True)
 
-                # ── Break Detection (trim post-fracture data) ─
+                # ── Break Detection (Strictly slice at peak stress) ─
                 peak_idx = df_std['Stress_MPa'].idxmax()
                 uts      = df_std['Stress_MPa'][peak_idx]
 
-                # Trim at fracture point — exactly at the highest stress
+                # Trim the dataframe to completely drop anything after the peak
                 df_std = df_std.iloc[:peak_idx + 1].copy()
 
                 # ── 0.2 % Offset Yield ───────────────────────
@@ -625,7 +623,6 @@ if submit and files:
                     yield_stress = yield_strain = np.nan
 
                 # ── Energy Integrals ─────────────────────────
-                # Numpy 2.0 compatibility wrapper
                 try:
                     work_done = np.trapezoid(df_std['Load_N'], df_std['Ext_mm'] / 1000)
                     toughness = np.trapezoid(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
@@ -636,7 +633,7 @@ if submit and files:
                 # ── Break values (last point of trimmed curve) ─
                 elong_break  = df_std['Strain_pct'].iloc[-1]
                 stress_break = df_std['Stress_MPa'].iloc[-1]
-                modulus_mpa  = max_slope * 100   # convert %⁻¹ → unitless ε
+                modulus_mpa  = max_slope * 100
 
                 display_name = clean_filename(f.name)
                 batch_results.append({
