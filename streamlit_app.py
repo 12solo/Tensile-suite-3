@@ -530,15 +530,12 @@ if submit and files:
                 origin = pd.DataFrame({'Load_N':[0.0], 'Ext_mm':[0.0], 'Strain_pct':[0.0], 'Stress_MPa':[0.0]})
                 df_std = pd.concat([origin, df_std], ignore_index=True)
                 
-                # --- SMART BREAK DETECTION ---
+                # --- SMART BREAK DETECTION (Strict Truncation at Peak) ---
                 peak_idx = df_std['Stress_MPa'].idxmax()
                 uts = df_std['Stress_MPa'][peak_idx]
                 
-                post_peak = df_std.iloc[peak_idx:]
-                break_candidates = post_peak[post_peak['Stress_MPa'] < (0.1 * uts)]
-                if not break_candidates.empty:
-                    break_idx = break_candidates.index[0]
-                    df_std = df_std.iloc[:break_idx + 1].copy()
+                # Trim the dataframe to completely drop anything after the peak
+                df_std = df_std.iloc[:peak_idx + 1].copy()
 
                 # Calculate 0.2% Offset Yield
                 modulus_mpa = max_slope * 100 
@@ -554,8 +551,12 @@ if submit and files:
                     yield_stress, yield_strain = np.nan, np.nan
 
                 # Integrals (Updated for NumPy 2.0 compatibility)
-                work_done = np.trapezoid(df_std['Load_N'], df_std['Ext_mm'] / 1000)
-                toughness = np.trapezoid(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
+                try:
+                    work_done = np.trapezoid(df_std['Load_N'], df_std['Ext_mm'] / 1000)
+                    toughness = np.trapezoid(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
+                except AttributeError:
+                    work_done = np.trapz(df_std['Load_N'], df_std['Ext_mm'] / 1000)
+                    toughness = np.trapz(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
                 
                 # Break values
                 last_idx = len(df_std) - 1
