@@ -55,6 +55,13 @@ html, body, [class*="css"] {
     background: var(--bg) !important;
 }
 
+/* ── Clean UI / Hide Native Streamlit Popups ──── */
+header { visibility: hidden !important; display: none !important; }
+footer { display: none !important; }
+[data-testid="InputInstructions"] { display: none !important; }
+div[data-baseweb="tooltip"] { display: none !important; }
+[data-testid="stFileUploadDropzone"] small { display: none !important; }
+
 /* ── Sidebar ──────────────────────────────────── */
 [data-testid="stSidebar"] {
     background: var(--bg-off) !important;
@@ -235,18 +242,16 @@ textarea {
 # HELPERS
 # ==========================================
 def get_base64(path):
-    if os.path.exists(path):
-        with open(path, 'rb') as f:
-            return base64.b64encode(f.read()).decode()
-    return None
+    with open(path, 'rb') as f:
+        return base64.b64encode(f.read()).decode()
 
 def clean_filename(filename):
     return os.path.splitext(filename)[0]
 
 def render_header():
     logo_path = "LOGO.png"
-    img_b64 = get_base64(logo_path)
-    if img_b64:
+    if os.path.exists(logo_path):
+        img_b64 = get_base64(logo_path)
         logo_html = f'<img src="data:image/png;base64,{img_b64}" style="height:44px;width:44px;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.12);">'
     else:
         logo_html = '<span style="font-size:1.6rem;">🔬</span>'
@@ -343,8 +348,8 @@ def section_header(text, sub=""):
 
 def render_sidebar_brand():
     logo_path = "LOGO.png"
-    img_b64 = get_base64(logo_path)
-    if img_b64:
+    if os.path.exists(logo_path):
+        img_b64 = get_base64(logo_path)
         icon = f'<img src="data:image/png;base64,{img_b64}" style="width:42px;height:42px;object-fit:contain;border-radius:8px;background:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.1);">'
     else:
         icon = '<div style="font-size:1.6rem;">🔬</div>'
@@ -372,7 +377,7 @@ def render_sidebar_brand():
             line-height:1.5;
         ">
             Batch Master Platform &nbsp;·&nbsp;
-            <a href='mailto:solomon.duf@gmail.com' style='color:#B45309;text-decoration:none;font-weight:500;'>
+            <a href='mailto:your.solomon.duf@gmail.com' style='color:#B45309;text-decoration:none;font-weight:500;'>
                 Contact Developer
             </a>
         </div>
@@ -584,12 +589,11 @@ if submit and files:
                                        'Strain_pct': [0.0], 'Stress_MPa': [0.0]})
                 df_std = pd.concat([origin, df_std], ignore_index=True)
 
-                # ── Break Detection (STRICT TRUNCATION AT PEAK) ─
-                # Locate the point of maximum stress
+                # ── Break Detection (trim post-fracture data) ─
                 peak_idx = df_std['Stress_MPa'].idxmax()
                 uts      = df_std['Stress_MPa'][peak_idx]
 
-                # Truncate the dataframe exactly at the peak, removing all trailing data
+                # Trim at fracture point — exactly at the highest stress
                 df_std = df_std.iloc[:peak_idx + 1].copy()
 
                 # ── 0.2 % Offset Yield ───────────────────────
@@ -605,10 +609,11 @@ if submit and files:
                     yield_stress = yield_strain = np.nan
 
                 # ── Energy Integrals ─────────────────────────
-                try: 
+                # Numpy 2.0 compatibility wrapper
+                try:
                     work_done = np.trapezoid(df_std['Load_N'], df_std['Ext_mm'] / 1000)
                     toughness = np.trapezoid(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
-                except AttributeError: # Fallback for NumPy < 2.0
+                except AttributeError:
                     work_done = np.trapz(df_std['Load_N'], df_std['Ext_mm'] / 1000)
                     toughness = np.trapz(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
 
@@ -730,6 +735,7 @@ if not df_m.empty:
             color = PALETTE[i % len(PALETTE)]
 
             if show_sd_band:
+                # Interpolate all replicates to common strain grid and build SD band
                 rep_files = sub['File'].tolist()
                 all_curves = [curves[f] for f in rep_files if f in curves]
                 if len(all_curves) >= 2:
@@ -854,7 +860,7 @@ $$\delta = \frac{-b_{\max}}{m_{\max}}$$
 
 The entire trace is shifted by $-\delta$ so the elastic region passes exactly through the origin $(0,\,0)$.
 
-**Post-fracture trimming**: The data array is strictly truncated at the index corresponding to the Ultimate Tensile Strength (UTS). All post-peak data (such as machine unloading curves or trailing noise) are removed before any plotting or energy integration occurs.
+**Post-fracture trimming**: data are removed once load reaches its absolute peak, completely truncating all trailing noise to provide clean export data.
             """)
 
         with st.expander("Modulus & Yield Parameters", expanded=False):
@@ -874,7 +880,7 @@ $$\sigma_{\text{offset}} = E\,(\varepsilon - 0.002)$$
 
 $$\text{UTS} = \sigma_{\max} = \frac{F_{\max}}{A_0}$$
 
-**Fracture point**: In highly ductile materials prone to slippage, the fracture point is conservatively defined as the UTS. The curve is terminated exactly at $\sigma_{\max}$.
+**Fracture point**: Defined strictly as the maximum stress point. All data after this index is completely discarded.
             """)
 
         with st.expander("Energy Integrals", expanded=False):
@@ -896,12 +902,12 @@ $$U_T = \int_0^{\varepsilon_f} \sigma\,\mathrm{d}\varepsilon \quad (\text{MJ\,m}
             "correcting for machine compliance and specimen seating artefacts. "
             "Young's modulus was identified via a steepest-window linear regression over the first 20 % of the trace. "
             "The 0.2 % strain offset method was used to define yield strength. "
-            "To remove machine unloading artifacts and trailing noise, the data traces were strictly truncated "
-            "at the ultimate tensile strength (UTS), which was conservatively defined as the fracture point. "
+            "Fracture was defined strictly as the ultimate tensile strength point; "
+            "all post-fracture trailing data were completely excluded from the exports and analyses. "
             "Volumetric toughness (MJ m⁻³) and total work done (J) were computed by trapezoidal numerical integration "
             "of the engineering stress–strain and load–extension curves, respectively."
         )
-        st.text_area("", methods_text, height=150)
+        st.text_area("", methods_text, height=140)
 
 else:
     # ── Empty State ───────────────────────────────
