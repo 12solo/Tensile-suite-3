@@ -46,6 +46,24 @@ st.markdown("""
     --shadow-md:   0 4px 12px rgba(0,0,0,0.06), 0 2px 4px rgba(0,0,0,0.04);
 }
 
+/* ── HYPER-AGGRESSIVE CLEAN UI (Hides Native Streamlit Elements) ── */
+#MainMenu { visibility: hidden !important; display: none !important; }
+header { visibility: hidden !important; display: none !important; height: 0px !important; }
+footer { visibility: hidden !important; display: none !important; height: 0px !important; }
+.stDeployButton { display: none !important; }
+
+/* 1. Destroy "Press Enter to apply" on Number Inputs */
+div[data-testid="InputInstructions"] { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0px !important; margin: 0 !important; padding: 0 !important; }
+div[data-testid="InputInstructions"] * { display: none !important; }
+
+/* 2. Destroy "Limit 200MB per file" and Uploader subtext */
+[data-testid="stFileUploadDropzone"] small { display: none !important; visibility: hidden !important; opacity: 0 !important; height: 0px !important; }
+[data-testid="stFileUploadDropzone"] div[data-testid="stMarkdownContainer"] p { font-size: 0.9rem !important; }
+
+/* 3. Destroy all Hover Tooltips */
+div[data-baseweb="tooltip"] { display: none !important; visibility: hidden !important; opacity: 0 !important; }
+[data-testid="stTooltipHoverTarget"] { pointer-events: none !important; cursor: default !important; }
+
 /* ── Reset & Base ─────────────────────────────── */
 html, body, [class*="css"] {
     font-family: var(--font-sans) !important;
@@ -55,12 +73,10 @@ html, body, [class*="css"] {
     background: var(--bg) !important;
 }
 
-/* ── Clean UI / Hide Native Streamlit Popups ──── */
-header { visibility: hidden !important; display: none !important; }
-footer { display: none !important; }
-[data-testid="InputInstructions"] { display: none !important; }
-div[data-baseweb="tooltip"] { display: none !important; }
-[data-testid="stFileUploadDropzone"] small { display: none !important; }
+[data-testid="block-container"] {
+    padding-top: 1.5rem !important; 
+    padding-bottom: 2rem !important;
+}
 
 /* ── Sidebar ──────────────────────────────────── */
 [data-testid="stSidebar"] {
