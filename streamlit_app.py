@@ -3,6 +3,8 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from scipy.signal import savgol_filter
+from scipy.optimize import curve_fit
 import io
 import re
 import os
@@ -23,10 +25,8 @@ st.set_page_config(
 # ==========================================
 st.markdown("""
 <style>
-/* ── Google Fonts ─────────────────────────────── */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
 
-/* ── CSS Variables ────────────────────────────── */
 :root {
     --navy:       #0b1120;
     --navy-mid:   #111827;
@@ -54,7 +54,6 @@ html, body, [class*="css"] {
 .stApp { background: var(--bg-white); }
 .stApp::before { display: none; }
 
-/* ── Sidebar ──────────────────────────────────── */
 [data-testid="stSidebar"] {
     background: #ffffff !important;
     border-right: 1px solid var(--border-light);
@@ -103,7 +102,6 @@ html, body, [class*="css"] {
     background-color: var(--bg-offwhite) !important;
 }
 
-/* ── Main Area Inputs ─────────────────────────── */
 .stSelectbox > div > div,
 .stTextInput > div > div > input,
 .stNumberInput > div > div > input {
@@ -115,7 +113,6 @@ html, body, [class*="css"] {
     font-size: 0.82rem !important;
 }
 
-/* ── Buttons ──────────────────────────────────── */
 .stButton > button {
     background: linear-gradient(135deg, var(--gold-dim), var(--gold)) !important;
     color: var(--navy) !important;
@@ -145,7 +142,6 @@ html, body, [class*="css"] {
     border: 1px solid var(--border-light) !important;
 }
 
-/* ── Tabs & DataFrames ─────────────────────────── */
 [data-testid="stTabs"] [role="tablist"] {
     background: var(--bg-offwhite);
     border-bottom: 1px solid var(--border-light);
@@ -315,7 +311,7 @@ def render_sidebar_brand():
             color:#000000;
             font-weight:500;
         ">Batch Master Platform<br>
-        <a href='mailto:your.solomon.duf@gmail.com'
+        <a href='mailto:solomon.duf@gmail.com'
            style='color:#9c7a32;text-decoration:none;'>
             ✉ Contact Developer
         </a>
@@ -323,16 +319,14 @@ def render_sidebar_brand():
     </div>
     """, unsafe_allow_html=True)
 
-
 # ==========================================
-# EXPORT UTILITY (AUTO-FIT & LOGO)
+# EXPORT UTILITY (MULTI-SHEET AUTO-FIT)
 # ==========================================
 def export_to_excel_with_logo(sheet_dict):
     """Expects a dictionary in the format {'Sheet Name': DataFrame}"""
     output = io.BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         for sheet_title, df in sheet_dict.items():
-            # Excel sheet names cannot exceed 31 characters and cannot contain certain symbols
             safe_title = str(sheet_title)[:31]
             safe_title = re.sub(r'[\\*?:/\[\]]', '_', safe_title)
             
@@ -537,14 +531,12 @@ if submit and files:
                 origin = pd.DataFrame({'Load_N':[0.0], 'Ext_mm':[0.0], 'Strain_pct':[0.0], 'Stress_MPa':[0.0]})
                 df_std = pd.concat([origin, df_std], ignore_index=True)
                 
-                # --- SMART BREAK DETECTION (Strict Truncation at Peak) ---
+                # --- SMART BREAK DETECTION ---
                 peak_idx = df_std['Stress_MPa'].idxmax()
                 uts = df_std['Stress_MPa'][peak_idx]
                 
-                # Trim the dataframe to completely drop anything after the peak
                 df_std = df_std.iloc[:peak_idx + 1].copy()
 
-                # Calculate 0.2% Offset Yield
                 modulus_mpa = max_slope * 100 
                 offset_stress = max_slope * (df_std['Strain_pct'] - 0.2)
                 diff = np.abs(df_std['Stress_MPa'] - offset_stress)
@@ -557,7 +549,6 @@ if submit and files:
                 else:
                     yield_stress, yield_strain = np.nan, np.nan
 
-                # Integrals (Updated for NumPy 2.0 compatibility)
                 try:
                     work_done = np.trapezoid(df_std['Load_N'], df_std['Ext_mm'] / 1000)
                     toughness = np.trapezoid(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
@@ -565,7 +556,6 @@ if submit and files:
                     work_done = np.trapz(df_std['Load_N'], df_std['Ext_mm'] / 1000)
                     toughness = np.trapz(df_std['Stress_MPa'], df_std['Strain_pct'] / 100)
                 
-                # Break values
                 last_idx = len(df_std) - 1
                 stress_break = df_std['Stress_MPa'].iloc[last_idx]
                 elong_break = df_std['Strain_pct'].iloc[last_idx]
@@ -685,9 +675,6 @@ if not df_m.empty:
         )
         st.plotly_chart(fig_rep, use_container_width=True, config=JOURNAL_CONFIG)
 
-    # ---------------------------------------------------------
-    # TAB 3: BATCH COMPARISON (MEAN & SD BAR CHARTS)
-    # ---------------------------------------------------------
     with tabs[3]:
         section_title("Batch Comparison & Statistics", "📊")
         st.markdown("<p style='color:#000000;'>Compare mean mechanical properties across batches. Error bars represent ±1 Standard Deviation.</p>", unsafe_allow_html=True)
@@ -730,9 +717,6 @@ if not df_m.empty:
         else:
             st.warning("No numeric data available for comparison.")
 
-    # ---------------------------------------------------------
-    # TAB 4: EXPORT DATA
-    # ---------------------------------------------------------
     with tabs[4]:
         section_title("Comprehensive Data Export", "💾")
         st.markdown("<p style='color:#000000;'>Download your aggregated statistics or extract the full wide-format data matrix for external plotting.</p>", unsafe_allow_html=True)
@@ -806,9 +790,6 @@ if not df_m.empty:
         st.markdown("<hr>", unsafe_allow_html=True)
         st.markdown("<p style='color:#000000; font-size:0.85rem;'><i>To download the high-resolution journal plots, navigate to the plotting tabs and click the <b>camera icon</b> located in the top-right corner of the charts.</i></p>", unsafe_allow_html=True)
 
-    # ---------------------------------------------------------
-    # TAB 5: METHODS
-    # ---------------------------------------------------------
     with tabs[5]:
         section_title("Documentation & Methods", "📖")
         
@@ -866,7 +847,6 @@ if not df_m.empty:
         st.text_area("Copy for your manuscript:", method_text, height=130)
 
 else:
-    # --- Empty State UI ---
     st.markdown("""
     <div style="
         margin-top:3rem; padding:3rem 2rem; background:#ffffff;
